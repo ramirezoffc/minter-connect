@@ -131,3 +131,21 @@ vault password again.
 ## Licence
 
 MIT OR Apache-2.0, matching the main project.
+
+## Will a firewall block this?
+
+No, and nothing needs opening on either side.
+
+**On the server** the only port reachable from the Internet is **22** — and it
+already is, otherwise you could not have installed anything. noVNC listens on
+`127.0.0.1:3021`, which no firewall filters because the traffic never leaves
+the machine.
+
+**On Windows** the forwarded port is bound to `127.0.0.1` too. Windows does not
+apply firewall rules to loopback traffic, so there is no prompt, no rule to add
+and no administrator rights needed. The outbound SSH connection is allowed by
+the default outbound policy.
+
+The one real blocker is a hardened server with `AllowTcpForwarding no` in its
+sshd config — rare, but it makes tunnels impossible. The script detects that
+case and tells you the exact command to fix it.

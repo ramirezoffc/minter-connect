@@ -168,11 +168,33 @@ function Start-Tunnel {
         Start-Sleep -Milliseconds 500
         if (Test-TunnelUp) { Write-Ok "listening on 127.0.0.1:$Port"; return }
     }
+
+    # Neither firewall can be at fault here: the listener is on loopback, which
+    # Windows does not filter, and the outbound SSH connection already
+    # succeeded. By far the most common real cause is a hardened server with
+    # port forwarding switched off, which otherwise fails silently.
+    $forwarding = & $Ssh -i $KeyPath -o BatchMode=yes -o ConnectTimeout=10 `
+        "$User@$ServerHost" 'sshd -T 2>/dev/null | grep -i allowtcpforwarding || echo unknown' 2>$null
+    if ($forwarding -match 'allowtcpforwarding\s+no') {
+        throw @"
+The server refuses port forwarding.
+
+Its sshd has 'AllowTcpForwarding no', so the tunnel cannot be built. Fix it on
+the server:
+
+  sudo sed -i 's/^AllowTcpForwarding.*/AllowTcpForwarding yes/' /etc/ssh/sshd_config
+  sudo systemctl reload ssh
+
+then run this script again.
+"@
+    }
+
     throw @"
 The tunnel did not come up.
 
-Check by hand:
-  ssh -i "$KeyPath" $User@$ServerHost "systemctl is-active minter-vps"
+The SSH connection worked, so this is most likely the service being down.
+Check it:
+  ssh -i "$KeyPath" $User@$ServerHost "systemctl status minter-vps"
 "@
 }
 
