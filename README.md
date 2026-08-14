@@ -40,7 +40,7 @@ either end.
 1. Install MINTER on the server first — it prints the address and user you need:
 
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/MaxBetov-pdd/Minter-rs-v2/main/deploy/ubuntu/install.sh | sudo bash
+   curl -fsSL https://raw.githubusercontent.com/MaxBetov-pdd/Minter-rs-v2/main/deploy/linux/install.sh | sudo bash
    ```
 
 2. Download this repository (green **Code** button → *Download ZIP*), unzip it.
@@ -128,10 +128,6 @@ vault password again.
 - Never publish port 3021 through a reverse proxy without real authentication
   in front of it.
 
-## Licence
-
-MIT OR Apache-2.0, matching the main project.
-
 ## Will a firewall block this?
 
 No, and nothing needs opening on either side.
@@ -149,3 +145,8 @@ the default outbound policy.
 The one real blocker is a hardened server with `AllowTcpForwarding no` in its
 sshd config — rare, but it makes tunnels impossible. The script detects that
 case and tells you the exact command to fix it.
+
+## Licence
+
+MIT OR Apache-2.0, matching the main project.
+
