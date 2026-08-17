@@ -1,152 +1,175 @@
-# minter-connect
+# MINTER Connect
 
-Opens the [MINTER](https://github.com/MaxBetov-pdd/Minter-rs-v2) GUI running on
-your VPS, from a Windows machine. One script, no administrator rights, nothing
-to install.
+Connects a Windows computer to the [MINTER](https://github.com/ramirezoffc/minter-rr)
+GUI running on a Linux VPS. The connection uses the OpenSSH client included with
+Windows and opens MINTER through a private localhost tunnel.
 
-## Why a connector at all
+## Quick Start
 
-MINTER runs on the server, not on your laptop — that is the point of putting it
-on a VPS: low latency to the chain and it keeps minting while your laptop
-sleeps. Its interface is a browser desktop (noVNC) that the server binds to
-**localhost only**.
+Install MINTER on the VPS first:
 
-That is deliberate. The noVNC layer is guarded by a classic VNC password, and
-classic VNC auth uses only the **first 8 characters**. That is not something to
-put in front of a wallet GUI on the open Internet.
-
-So the GUI is reached through an SSH tunnel: a port on your laptop that
-forwards into an already-authenticated SSH connection.
-
-```
-  your laptop                                 your VPS
-  ───────────                                 ────────
-  browser
-     │
-     ▼
-  127.0.0.1:3021 ──┐
-                   │  ssh -L  (encrypted)
-                   └──────────────────────► 127.0.0.1:3021
-                                                 │
-                                            noVNC → MINTER
+```bash
+curl -fsSL https://raw.githubusercontent.com/ramirezoffc/minter-rr/main/deploy/linux/install.sh | sudo bash
 ```
 
-`127.0.0.1` on the left is your laptop. `127.0.0.1` on the right is the server,
-reached because SSH is already connected there. Nothing is exposed publicly at
-either end.
+Then on the Windows computer:
 
-## Use it
+1. Download this repository with **Code → Download ZIP**.
+2. Extract the complete ZIP to a normal folder.
+3. Double-click `connect.cmd`.
+4. Enter the VPS IP address or hostname.
+5. Enter the SSH user printed by the VPS installer. Press Enter to use `root`.
+6. On the first connection, enter the VPS password directly into `ssh.exe`.
+7. Wait for the browser to open MINTER.
 
-1. Install MINTER on the server first — it prints the address and user you need:
+The first successful connection creates a local Ed25519 key and installs only
+its public half on the VPS. The VPS password is not requested again.
 
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/MaxBetov-pdd/Minter-rs-v2/main/deploy/linux/install.sh | sudo bash
-   ```
+## Later connections
 
-2. Download this repository (green **Code** button → *Download ZIP*), unzip it.
+Double-click `connect.cmd`. The saved server, SSH key and tunnel are reused, and
+the browser opens after MINTER noVNC answers successfully.
 
-3. Right-click `connect.ps1` → **Run with PowerShell**.
+Use the other launchers when needed:
 
-If Windows blocks the script, open PowerShell in that folder and run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\connect.ps1
-```
-
-### First run
-
-```
-  Server address (IP or hostname): 203.0.113.45
-  SSH user [root]: minter
-
-==> Creating an SSH key
-  [ok] key created
-==> Installing the key on the server
-  You will be asked for the server password ONCE.
-  minter@203.0.113.45's password: ********
-  [ok] key installed — no more passwords
-==> Opening the tunnel
-  [ok] listening on 127.0.0.1:3021
-  [ok] noVNC is up
-
-  Browser opened. Leave this tunnel running while you work.
-```
-
-### Every run after that
-
-Double-click. The browser opens in about two seconds. Nothing to type.
-
-## Options
-
-| Command | What it does |
+| Launcher | Action |
 |---|---|
-| `.\connect.ps1` | connect (reuses the tunnel if it is already open) |
-| `.\connect.ps1 -Stop` | close the tunnel |
-| `.\connect.ps1 -Reset` | forget the saved server and ask again |
+| `connect.cmd` | Connect and open MINTER |
+| `stop.cmd` | Close only the MINTER Connect SSH tunnel |
+| `reset.cmd` | Close the tunnel and forget the saved server |
 
-Settings live in `%APPDATA%\minter\connect.json`. The SSH key is
-`%USERPROFILE%\.ssh\minter_vps_ed25519` — it is generated locally and never
-leaves your machine except for its public half.
+`reset.cmd` does not delete the SSH private key, remove the public key from the
+VPS, or modify `known_hosts`. Run `connect.cmd` afterwards to enter a server
+again.
 
 ## Requirements
 
-Windows 10 or 11. The built-in OpenSSH client is used; if it has been removed,
-turn it back on under *Settings → System → Optional features → Add →
-OpenSSH Client*.
+- Windows 10 or Windows 11.
+- The built-in Windows OpenSSH Client.
+- A browser.
+- SSH access to the VPS, normally on port 22.
+
+No administrator rights or third-party Windows runtime is required. The CMD
+launchers apply `ExecutionPolicy Bypass` only to their own PowerShell process;
+they do not change the machine or user execution policy.
+
+If OpenSSH Client is unavailable, open:
+
+```text
+Settings → System → Optional features → Add an optional feature
+```
+
+and install **OpenSSH Client**.
+
+## Saved files
+
+Server settings:
+
+```text
+%APPDATA%\minter\connect.json
+```
+
+The config stores only:
+
+```text
+host
+user
+```
+
+The noVNC tunnel port is fixed at `3021`; it is not a configurable SSH port.
+
+SSH key pair:
+
+```text
+%USERPROFILE%\.ssh\minter_vps_ed25519
+%USERPROFILE%\.ssh\minter_vps_ed25519.pub
+```
+
+If the `.pub` file is missing, MINTER Connect restores it from the existing
+private key. An invalid private key is never deleted automatically; the
+connector stops with a recovery message instead.
 
 ## Troubleshooting
 
-**"No SSH client found"** — install the OpenSSH Client optional feature above.
+### OpenSSH Client unavailable
 
-**Asks for a password every time** — the key was not accepted. Run
-`.\connect.ps1 -Reset` and check that the user you enter is the one that owns
-`~/.ssh/authorized_keys` on the server.
+Install the Windows optional feature described above. Both `ssh.exe` and
+`ssh-keygen.exe` are required.
 
-**Tunnel opens but the page does not load** — the service may be down. Check it:
+### Connection timeout or wrong server
 
-```powershell
-ssh -i $env:USERPROFILE\.ssh\minter_vps_ed25519 USER@SERVER "systemctl status minter-vps"
+Check that:
+
+- the VPS is running;
+- its IP/hostname is correct;
+- SSH port 22 is reachable;
+- the SSH username is correct.
+
+Run `reset.cmd` to clear a stale or incorrect saved host/user, then run
+`connect.cmd` again.
+
+### Local port 3021 is occupied
+
+Run `stop.cmd` first. It stops only an SSH process matching the MINTER Connect
+key and forwarding parameters. If the error remains, another application owns
+port `3021`; close that application before connecting. The connector will not
+kill an unrelated process.
+
+### noVNC is unavailable
+
+The browser is opened only after noVNC returns a successful HTTP response. On
+the VPS, check:
+
+```bash
+systemctl status minter-vps
 ```
 
-**Black screen in noVNC** — the virtual display died. Restart the service, but
-only when no mint is running:
+Restart only when no mint is running:
 
-```powershell
-ssh USER@SERVER "sudo systemctl restart minter-vps"
+```bash
+sudo systemctl restart minter-vps
 ```
 
-A restart clears the unlocked vault from memory, so you will have to enter the
-vault password again.
+A restart locks the vault again, so its password must be entered in MINTER.
+
+### SSH key issue
+
+If the private key exists but is invalid, MINTER Connect leaves it untouched.
+Back it up or rename it manually before creating a replacement. A new key must
+be installed with the VPS password again.
+
+### Server refuses the tunnel
+
+A hardened SSH server can set `AllowTcpForwarding no`. Enable TCP forwarding in
+the server SSH policy and reload `sshd`, then retry.
 
 ## Security
 
-- The forwarded port binds to `127.0.0.1` on your laptop — other devices on
-  your network cannot reach it.
-- The SSH key is created without a passphrase so the script can run unattended.
-  Anyone with access to your Windows user account can therefore reach the
-  server; treat the laptop accordingly.
-- Never publish port 3021 through a reverse proxy without real authentication
-  in front of it.
+- The VPS password is entered directly into `ssh.exe`. MINTER Connect does not
+  read, save or log it.
+- The private SSH key remains on the Windows computer. Only the validated public
+  Ed25519 key is sent to `authorized_keys` on the VPS.
+- The key has no passphrase so later launches need no input. Anyone with access
+  to the Windows user account may therefore be able to access the VPS.
+- SSH uses `StrictHostKeyChecking=accept-new`. This is trust on first use (TOFU):
+  the first unknown VPS host key is accepted automatically, while later host-key
+  changes are rejected. Verify the VPS address before entering its password.
+- noVNC remains bound to `127.0.0.1:3021` on the VPS and Windows computer. It is
+  carried inside SSH and is not exposed publicly.
+- Never publish port `3021` through a public firewall rule or reverse proxy.
 
-## Will a firewall block this?
+## How the connection is routed
 
-No, and nothing needs opening on either side.
-
-**On the server** the only port reachable from the Internet is **22** — and it
-already is, otherwise you could not have installed anything. noVNC listens on
-`127.0.0.1:3021`, which no firewall filters because the traffic never leaves
-the machine.
-
-**On Windows** the forwarded port is bound to `127.0.0.1` too. Windows does not
-apply firewall rules to loopback traffic, so there is no prompt, no rule to add
-and no administrator rights needed. The outbound SSH connection is allowed by
-the default outbound policy.
-
-The one real blocker is a hardened server with `AllowTcpForwarding no` in its
-sshd config — rare, but it makes tunnels impossible. The script detects that
-case and tells you the exact command to fix it.
+```text
+Windows browser
+    ↓
+127.0.0.1:3021
+    ↓ encrypted SSH tunnel
+VPS 127.0.0.1:3021
+    ↓
+noVNC → MINTER
+```
 
 ## Licence
 
-MIT OR Apache-2.0, matching the main project.
-
+MIT OR Apache-2.0, matching MINTER.
